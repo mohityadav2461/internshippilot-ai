@@ -61,6 +61,14 @@ def _env_float(name: str, default: float) -> float:
     return float(raw) if raw else default
 
 
+def sanitize_key(raw: str) -> str:
+    key = raw.strip().strip("'\"<>[]() \t\r\n")
+    for prefix in ("secret--", "secret-", "secret:", "default--", "default-", "default:", "key:"):
+        if key.startswith(prefix):
+            key = key[len(prefix):].strip()
+    return key
+
+
 @dataclass(frozen=True)
 class Settings:
     supabase_url: str
@@ -81,10 +89,11 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         url = sanitize_supabase_url(os.getenv("SUPABASE_URL", ""))
+        key = sanitize_key(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
 
         return cls(
             supabase_url=url,
-            supabase_service_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip(),
+            supabase_service_key=key,
             gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
             gemini_model=os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash",
             gemini_daily_cap=_env_int("GEMINI_DAILY_CALL_CAP", 40),
