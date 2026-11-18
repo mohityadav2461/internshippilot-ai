@@ -116,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     settings = Settings.from_env()
+    logging.info("Connecting to database at: %s", settings.supabase_url)
     try:
         store = SupabaseStore(settings)
     except Exception as exc:  # configuration problem: fail with a clear message, no stack trace

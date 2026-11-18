@@ -50,8 +50,14 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+        while url.startswith("https://https://") or url.startswith("http://https://"):
+            url = url[8:] if url.startswith("https://https://") else url[7:]
+        if url.endswith("/rest/v1"):
+            url = url[:-8]
+
         return cls(
-            supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
+            supabase_url=url,
             supabase_service_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip(),
             gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
             gemini_model=os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash",
@@ -68,6 +74,8 @@ class Settings:
         )
 
     def require_database(self) -> None:
+        if "YOUR-PROJECT-REF" in self.supabase_url:
+            raise ConfigError("SUPABASE_URL contains placeholder 'YOUR-PROJECT-REF'. Update it in GitHub Secrets with your real Supabase URL.")
         if not self.supabase_url.startswith("https://"):
             raise ConfigError("SUPABASE_URL must be an https:// URL")
         if len(self.supabase_service_key) < 20:
