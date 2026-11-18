@@ -284,6 +284,16 @@ drop policy if exists "pipeline_runs_select_authenticated" on public.pipeline_ru
 create policy "pipeline_runs_select_authenticated" on public.pipeline_runs
   for select to authenticated using (true);
 
+-- Grant schema and table access to Supabase roles
+grant usage on schema public to postgres, anon, authenticated, service_role;
+grant all privileges on all tables in schema public to postgres, anon, authenticated, service_role;
+grant all privileges on all functions in schema public to postgres, anon, authenticated, service_role;
+grant all privileges on all sequences in schema public to postgres, anon, authenticated, service_role;
+
+alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;
+
 -- No policies on ai_usage_daily: service role only.
 revoke all on public.ai_usage_daily from anon, authenticated;
 revoke all on public.pipeline_runs from anon, authenticated;
