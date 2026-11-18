@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 BOT_TOKEN = "InternshipPilotBot"
 ROBOTS_TTL_S = 24 * 3600
 ROBOTS_ERROR_TTL_S = 3600
-MAX_BYTES = 3_000_000
+MAX_BYTES = 15_000_000
 CHALLENGE_MARKERS = ("captcha", "cf-chl-", "are you a robot", "verify you are human", "datadome", "perimeterx")
 
 
