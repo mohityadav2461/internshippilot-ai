@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import httpx
 
@@ -25,6 +26,7 @@ class SupabaseStore:
     def __init__(self, settings: Settings, http: httpx.Client | None = None) -> None:
         settings.require_database()
         self._base = f"{settings.supabase_url}/rest/v1"
+        self._host = urlparse(settings.supabase_url).hostname or ""
         self._http = http or httpx.Client(
             timeout=settings.http_timeout_s,
             headers={
@@ -40,7 +42,10 @@ class SupabaseStore:
             raise StoreError(f"Supabase {resp.status_code}: {resp.text[:300]}")
 
     def select(self, table: str, **params: str) -> list[dict]:
-        resp = self._http.get(f"{self._base}/{table}", params=params)
+        try:
+            resp = self._http.get(f"{self._base}/{table}", params=params)
+        except httpx.ConnectError as exc:
+            raise StoreError(f"Cannot resolve or connect to Supabase host '{self._host}'. Please verify SUPABASE_URL in GitHub Secrets. ({exc})") from exc
         self._check(resp)
         return resp.json()
 
@@ -53,18 +58,24 @@ class SupabaseStore:
             if on_conflict:
                 params["on_conflict"] = on_conflict
                 prefer.append("resolution=ignore-duplicates" if ignore_duplicates else "resolution=merge-duplicates")
-            resp = self._http.post(f"{self._base}/{table}", params=params, json=chunk,
-                                   headers={"Prefer": ",".join(prefer)})
+            try:
+                resp = self._http.post(f"{self._base}/{table}", params=params, json=chunk,
+                                       headers={"Prefer": ",".join(prefer)})
+            except httpx.ConnectError as exc:
+                raise StoreError(f"Cannot resolve or connect to Supabase host '{self._host}'. Please verify SUPABASE_URL in GitHub Secrets. ({exc})") from exc
             self._check(resp)
             if return_rows:
                 out.extend(resp.json())
         return out
 
     def patch(self, table: str, data: dict, *, filters: dict[str, str], return_rows: bool = False) -> list[dict]:
-        resp = self._http.patch(
-            f"{self._base}/{table}", params=filters, json=data,
-            headers={"Prefer": "return=representation" if return_rows else "return=minimal"},
-        )
+        try:
+            resp = self._http.patch(
+                f"{self._base}/{table}", params=filters, json=data,
+                headers={"Prefer": "return=representation" if return_rows else "return=minimal"},
+            )
+        except httpx.ConnectError as exc:
+            raise StoreError(f"Cannot resolve or connect to Supabase host '{self._host}'. Please verify SUPABASE_URL in GitHub Secrets. ({exc})") from exc
         self._check(resp)
         return resp.json() if return_rows else []
 

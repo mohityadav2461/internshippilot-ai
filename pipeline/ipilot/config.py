@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -12,6 +14,34 @@ load_dotenv()
 
 class ConfigError(RuntimeError):
     """Raised when required configuration is missing or malformed."""
+
+
+def sanitize_supabase_url(raw: str) -> str:
+    url = raw.strip().strip("'\"<>[]() \t\r\n")
+    # If someone pasted dashboard URL: https://supabase.com/dashboard/project/<ref>
+    m = re.search(r"supabase\.com/dashboard/project/([a-z0-9_-]+)", url)
+    if m:
+        return f"https://{m.group(1)}.supabase.co"
+
+    # Remove repeated protocol
+    while url.startswith("https://https://") or url.startswith("http://https://"):
+        url = url[8:] if url.startswith("https://https://") else url[7:]
+
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+
+    # Remove any stray angle brackets or brackets in middle: e.g. https://<ref>.supabase.co
+    url = url.replace("<", "").replace(">", "").replace("[", "").replace("]", "")
+
+    # Common typo: .supabase.com instead of .supabase.co
+    if ".supabase.com" in url:
+        url = url.replace(".supabase.com", ".supabase.co")
+
+    url = url.rstrip("/")
+    if url.endswith("/rest/v1"):
+        url = url[:-8]
+
+    return url
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -50,11 +80,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-        while url.startswith("https://https://") or url.startswith("http://https://"):
-            url = url[8:] if url.startswith("https://https://") else url[7:]
-        if url.endswith("/rest/v1"):
-            url = url[:-8]
+        url = sanitize_supabase_url(os.getenv("SUPABASE_URL", ""))
 
         return cls(
             supabase_url=url,
